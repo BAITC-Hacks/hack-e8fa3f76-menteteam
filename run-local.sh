@@ -13,4 +13,4 @@ if ! command -v ffmpeg >/dev/null 2>&1; then
 fi
 if [ ! -f .env ]; then cp .env.example .env; fi
 uv sync --extra diarization
-uv run streamlit run app.py --server.address 0.0.0.0
+uv run streamlit run app.py --server.address 127.0.0.1

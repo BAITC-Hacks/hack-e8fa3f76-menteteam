@@ -11,10 +11,13 @@ dependencies = [
   "reportlab>=4.2,<5",
   "faster-whisper>=1.2,<2",
   "requests>=2.32,<3",
+  "torch>=2.8,<2.14",
+  "transformers>=5.3,<6",
+  "accelerate>=1.4,<2",
 ]
 
 [project.optional-dependencies]
-diarization = ["pyannote.audio>=3.3,<5", "torch>=2.8,<2.14", "torchaudio>=2.8,<2.14"]
+diarization = ["pyannote.audio>=3.3,<5", "torchaudio>=2.8,<2.14"]
 
 [[tool.uv.index]]
 name = "pytorch-cpu"

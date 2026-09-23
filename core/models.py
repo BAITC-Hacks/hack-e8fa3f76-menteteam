@@ -1,3 +1,5 @@
+from datetime import date
+from typing import Literal
 from pydantic import BaseModel, Field
 
 class Segment(BaseModel):
@@ -13,6 +15,8 @@ class Task(BaseModel):
     deadline: str = "Срок не определён"
     evidence: str
     timestamp: float = 0
+    due_date: date | None = None
+    status: Literal["В работе", "Выполнено"] = "В работе"
 
 class MeetingResult(BaseModel):
     title: str
