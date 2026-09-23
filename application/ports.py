@@ -9,7 +9,7 @@ class Transcriber(Protocol):
 
 
 class MinutesExtractor(Protocol):
-    def extract(self, transcript: str) -> dict: ...
+    def extract(self, transcript: str, *, segments: list[Segment] | None = None) -> dict: ...
 
 
 class MeetingRepository(Protocol):

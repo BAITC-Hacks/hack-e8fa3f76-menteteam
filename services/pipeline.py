@@ -10,7 +10,7 @@ from application.process import ProcessMeeting, cache_key
 from core.models import MeetingResult
 from settings import DATA
 
-PIPELINE_VERSION = "local-7-report-tables"
+PIPELINE_VERSION = "local-8-security-gate"
 
 
 def analyze(path: str, title: str, asr_model: str, llm_model: str,
@@ -25,13 +25,16 @@ def analyze(path: str, title: str, asr_model: str, llm_model: str,
                     device=os.getenv("AI_DEVICE", "cuda"))
     cached = DATA / "cache" / f"{cache_key(source, settings)}.json"
     if use_cache and cached.exists():
-        progress("Использую локальный результат предыдущей обработки…")
         result = MeetingResult.model_validate_json(cached.read_text(encoding="utf-8"))
-        result.id, result.title, result.source_path = uuid4().hex, title, str(source.resolve())
-        return result
+        # Old/unreviewed results must not bypass the new security boundary.
+        if (result.security is not None and result.security.status == "passed"
+                and not result.security.requires_review):
+            progress("Использую локальный результат предыдущей обработки…")
+            result.id, result.title, result.source_path = uuid4().hex, title, str(source.resolve())
+            return result
     result = ProcessMeeting(LocalSpeech(asr_model, compute_type, language, hf_token, diarization),
                             LocalGemma(llm_model, hf_token)).run(path, title, meeting_date, progress)
-    if not result.warnings:
+    if not result.warnings and result.security is not None and not result.security.requires_review:
         cached.parent.mkdir(parents=True, exist_ok=True)
         temporary = cached.with_name(f".{uuid4().hex}.tmp")
         temporary.write_text(result.model_dump_json(indent=2), encoding="utf-8")

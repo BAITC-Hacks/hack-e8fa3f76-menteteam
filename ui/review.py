@@ -124,7 +124,10 @@ def _render_protocol_form(meeting, repo, model_config=None):
                     try:
                         with st.spinner("Составляю таблицу показателей по стенограмме…"):
                             updated = rebuild_reports(updated, model_config["gemma"], model_config.get("token") or None)
-                            repo.save_reports(updated.id, updated.reports, updated.questions)
+                            if updated.security is not None and updated.security.requires_review:
+                                st.session_state[f"report-error-{meeting.id}"] = updated.warnings[-1]
+                            else:
+                                repo.save_reports(updated.id, updated.reports, updated.questions)
                     except Exception as exc:
                         st.session_state[f"report-error-{meeting.id}"] = (
                             f"Правки сохранены. Таблицу показателей обновить не удалось: {exc}")

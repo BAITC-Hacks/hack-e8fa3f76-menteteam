@@ -40,6 +40,16 @@ class DirectionReport(BaseModel):
     evidence: str = ""
     review_required: bool = False
 
+class SecurityDecision(BaseModel):
+    """Content-free backend decision from the existing security pipeline."""
+    status: Literal["passed", "requires_review", "security_error"]
+    requires_review: bool
+    risk_level: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    llm_input_policy: Literal["UNTRUSTED"] = "UNTRUSTED"
+    pii_detected: bool = False
+    prompt_injection_detected: bool = False
+    error_code: Literal["SECURITY_PROCESSING_FAILED"] | None = None
+
 class MeetingResult(BaseModel):
     id: str = Field(default_factory=lambda: uuid4().hex)
     title: str
@@ -57,3 +67,4 @@ class MeetingResult(BaseModel):
     tasks: list[Task] = Field(default_factory=list)
     questions: list[str] = Field(default_factory=list)
     transcript: list[Segment] = Field(default_factory=list)
+    security: SecurityDecision | None = None

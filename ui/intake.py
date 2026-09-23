@@ -95,6 +95,11 @@ def render_intake(repo, data_dir, config):
                                  config["token"] or None, meeting_date, progress=st.write, use_cache=not retry)
                 result.organization = organization.strip()
                 repo.save(result)
+                if result.security is not None and result.security.requires_review:
+                    status.update(label="Требуется проверка безопасности", state="error")
+                    st.warning(result.warnings[0])
+                    st.session_state["meeting_id"] = result.id
+                    return
                 status.update(label="Протокол готов к проверке", state="complete")
             st.session_state["meeting_id"] = result.id
             st.success("Результат сохранён. Откройте вкладку «Протоколы» и подтвердите участников и поручения.")

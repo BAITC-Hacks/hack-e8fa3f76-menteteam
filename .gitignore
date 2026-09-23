@@ -2,6 +2,7 @@
 .env
 __pycache__/
 .pytest_cache/
+security_audit.jsonl
 *.pyc
 .cache/
 data/cache/
@@ -17,3 +18,4 @@ data/outbox/
 /data/*.wav
 /data/*.m4a
 /data/*.mp4
+.idea/

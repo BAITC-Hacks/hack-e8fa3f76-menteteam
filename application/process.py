@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Callable
 
 from application.ports import MinutesExtractor, Transcriber
+from application.security_gate import ERROR_MESSAGE, REVIEW_MESSAGE, check_transcript
 from core.grounding import build_result
 from core.models import MeetingResult
 
@@ -32,11 +33,22 @@ class ProcessMeeting:
         segments, language, warning = self.transcriber.transcribe(path)
         if not segments:
             raise ValueError("В записи не обнаружена речь.")
+        progress("Проверяю безопасность стенограммы…")
+        checked = check_transcript(" ".join(s.text for s in segments), segments)
+        if checked.decision.requires_review:
+            message = (ERROR_MESSAGE if checked.decision.status == "security_error"
+                       else REVIEW_MESSAGE)
+            return MeetingResult(
+                title=title, summary="", meeting_date=meeting_date,
+                language=language, transcript=checked.segments,
+                security=checked.decision, source_path=str(Path(path).resolve()),
+                warnings=[message, *([warning] if warning else [])],
+            )
         progress("Gemma составляет протокол локально…")
-        transcript = "\n".join(f"[{s.id}] [{s.start:.1f}-{s.end:.1f}] {s.speaker}: {s.text}" for s in segments)
-        data = self.extractor.extract(transcript)
+        data = self.extractor.extract(checked.text, segments=checked.segments)
         progress("Проверяю цитаты, ответственных и сроки…")
-        result = build_result(title, segments, language, data, meeting_date)
+        result = build_result(title, checked.segments, language, data, meeting_date)
+        result.security = checked.decision
         result.source_path = str(Path(path).resolve())
         if warning:
             result.warnings.append(warning)
