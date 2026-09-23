@@ -1,0 +1,15 @@
+.venv/
+.env
+__pycache__/
+.pytest_cache/
+*.pyc
+.cache/
+data/cache/
+data/models/
+data/uploads/
+
+# Private meeting recordings
+/data/*.mp3
+/data/*.wav
+/data/*.m4a
+/data/*.mp4

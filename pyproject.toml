@@ -1,0 +1,35 @@
+[project]
+name = "alem-minutes"
+version = "0.1.0"
+description = "Offline meeting protocol assistant with local AI models"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "streamlit>=1.40,<2",
+  "pydantic>=2.8,<3",
+  "python-dotenv>=1.0,<2",
+  "python-docx>=1.1,<2",
+  "reportlab>=4.2,<5",
+  "faster-whisper>=1.2,<2",
+  "requests>=2.32,<3",
+]
+
+[project.optional-dependencies]
+diarization = ["pyannote.audio>=3.3,<5", "torch>=2.8,<2.14", "torchaudio>=2.8,<2.14"]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchaudio = { index = "pytorch-cpu" }
+
+[dependency-groups]
+dev = [
+    "pytest>=8,<9",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

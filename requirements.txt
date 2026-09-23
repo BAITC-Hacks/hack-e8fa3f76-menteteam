@@ -1,0 +1,10 @@
+# Optional local diarization (installed by `./run-local.sh` via uv extra)
+# For pip use, prefer the locked project setup: uv sync --extra diarization.
+streamlit>=1.40,<2
+pydantic>=2.8,<3
+python-dotenv>=1.0,<2
+python-docx>=1.1,<2
+reportlab>=4.2,<5
+faster-whisper>=1.2,<2
+requests>=2.32,<3
+pytest>=8,<9
