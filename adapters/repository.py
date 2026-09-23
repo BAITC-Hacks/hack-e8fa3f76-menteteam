@@ -54,7 +54,9 @@ class SQLiteMeetings:
             pending = not db.execute("SELECT 1 FROM notifications WHERE id=?", (key,)).fetchone()
             if pending and meeting is not None:
                 current = db.execute("SELECT payload FROM meetings WHERE id=?", (meeting.id,)).fetchone()
-                pending = current is not None and current[0] == meeting.model_dump_json()
+                # Compare the loaded schema so older records with missing new
+                # optional fields still match; changed approvals/recipients do not.
+                pending = current is not None and MeetingResult.model_validate_json(current[0]) == meeting
             yield pending
             if pending:
                 db.execute("INSERT INTO notifications(id) VALUES (?)", (key,))

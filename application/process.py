@@ -33,7 +33,7 @@ class ProcessMeeting:
         if not segments:
             raise ValueError("В записи не обнаружена речь.")
         progress("Gemma составляет протокол локально…")
-        transcript = "\n".join(f"[{s.start:.1f}-{s.end:.1f}] {s.speaker}: {s.text}" for s in segments)
+        transcript = "\n".join(f"[{s.id}] [{s.start:.1f}-{s.end:.1f}] {s.speaker}: {s.text}" for s in segments)
         data = self.extractor.extract(transcript)
         progress("Проверяю цитаты, ответственных и сроки…")
         result = build_result(title, segments, language, data, meeting_date)

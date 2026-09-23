@@ -26,12 +26,20 @@ class Task(BaseModel):
     urgency: Literal["Обычная", "Высокая", "Низкая"] = "Обычная"
     area: str = "Общее"
 
+class MeetingTopic(BaseModel):
+    title: str
+    summary: str = ""
+    start_segment_id: str
+
 class MeetingResult(BaseModel):
     id: str = Field(default_factory=lambda: uuid4().hex)
     title: str
     summary: str
     meeting_date: date | None = None
+    organization: str = ""
     participants: dict[str, str] = Field(default_factory=dict)
+    participant_roles: dict[str, str] = Field(default_factory=dict)
+    topics: list[MeetingTopic] = Field(default_factory=list)
     source_path: str = ""
     warnings: list[str] = Field(default_factory=list)
     language: str = "unknown"

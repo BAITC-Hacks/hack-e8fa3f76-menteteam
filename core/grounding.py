@@ -2,7 +2,7 @@
 import re
 from datetime import date, timedelta
 
-from core.models import MeetingResult, Segment, Task
+from core.models import MeetingResult, MeetingTopic, Segment, Task
 
 UNKNOWN_OWNER = "Ответственный не определён"
 UNKNOWN_DEADLINE = "Срок не определён"
@@ -80,9 +80,26 @@ def build_result(title: str, segments: list[Segment], language: str, data: dict,
                           owner_speaker_id=owner_speaker, due_date=due_date,
                           urgency=urgency if urgency in {"Высокая", "Обычная", "Низкая"} else "Обычная",
                           area=str(raw.get("area") or "Общее")))
+    positions = {segment.id: index for index, segment in enumerate(segments)}
+    topics_by_start = {}
+    for raw in data.get("topics", []):
+        start = raw.get("start_segment_id")
+        topic_title = str(raw.get("title") or "").strip()
+        if start not in positions or not topic_title:
+            questions.append("Проверьте разделение на темы: начало одной из тем не найдено в стенограмме.")
+            continue
+        topics_by_start.setdefault(start, MeetingTopic(
+            title=topic_title, summary=str(raw.get("summary") or "").strip(), start_segment_id=start))
+    topics = []
+    for topic in sorted(topics_by_start.values(), key=lambda item: positions[item.start_segment_id]):
+        if topics and normalize(topics[-1].title) == normalize(topic.title):
+            if topic.summary and topic.summary != topics[-1].summary:
+                topics[-1].summary = "\n\n".join(filter(None, [topics[-1].summary, topic.summary]))
+        else:
+            topics.append(topic)
     return MeetingResult(title=title, meeting_date=meeting_date, summary=data.get("summary", ""),
                          language=language, decisions=data.get("decisions", []), tasks=tasks,
-                         questions=list(dict.fromkeys(questions)), transcript=segments)
+                         questions=list(dict.fromkeys(questions)), transcript=segments, topics=topics)
 
 
 def rename_participants(meeting: MeetingResult, names: dict[str, str]) -> MeetingResult:

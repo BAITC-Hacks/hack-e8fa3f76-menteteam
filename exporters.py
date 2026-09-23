@@ -6,57 +6,58 @@ from io import BytesIO
 from pathlib import Path
 
 from docx import Document
+from docx.shared import Cm, Pt
+from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+from reportlab.platypus import LongTable, Paragraph, SimpleDocTemplate, Spacer, TableStyle
 
+from core.minutes import minutes_blocks
 from core.models import MeetingResult
 
 
-def _content(result: MeetingResult):
-    rows = [["Поручение", "Ответственный", "Срок", "Дата", "Статус"]]
-    rows.extend([[t.title, t.owner, t.deadline,
-                  t.due_date.isoformat() if t.due_date else "—", t.status] for t in result.tasks])
-    return rows
-
-
-def export_docx(result: MeetingResult) -> bytes:
+def export_docx(result: MeetingResult, include_details: bool = True) -> bytes:
     doc = Document()
-    doc.add_heading(f"Протокол: {result.title}", 0)
-    doc.add_paragraph(f"Дата: {result.meeting_date or 'не указана'} · Язык: {result.language}")
-    doc.add_heading("Саммари", level=1)
-    doc.add_paragraph(result.summary or "Не сформировано")
-    doc.add_heading("Решения", level=1)
-    for item in result.decisions:
-        doc.add_paragraph(item, style="List Bullet")
-    doc.add_heading("Поручения", level=1)
-    table = doc.add_table(rows=1, cols=5)
-    table.style = "Light Shading Accent 1"
-    for cell, value in zip(table.rows[0].cells, _content(result)[0]):
-        cell.text = value
-    for values in _content(result)[1:]:
-        for cell, value in zip(table.add_row().cells, values):
-            cell.text = value
-    for task in result.tasks:
-        doc.add_paragraph(f"{task.title} · {task.urgency} · {task.area} · "
-                          f"{'Проверено' if task.approved else 'Черновик'}")
-        doc.add_paragraph(f"Цитата [{task.timestamp:.1f} сек]: {task.evidence}")
-    doc.add_heading("Транскрипт", level=1)
-    for segment in result.transcript:
-        speaker = result.participants.get(segment.speaker, segment.speaker)
-        doc.add_paragraph(f"[{segment.start:.1f}–{segment.end:.1f}] {speaker}: {segment.text}")
-    if result.questions or result.warnings:
-        doc.add_heading("Нужно уточнить", level=1)
-        for question in result.questions + result.warnings:
-            doc.add_paragraph(question, style="List Bullet")
+    section = doc.sections[0]
+    section.page_width, section.page_height = Cm(21), Cm(29.7)
+    section.left_margin = section.right_margin = Cm(2)
+    doc.styles["Normal"].font.name = "Calibri"
+    doc.styles["Normal"].font.size = Pt(11)
+    for block in minutes_blocks(result, include_details):
+        if block.kind in {"title", "heading", "subheading"}:
+            doc.add_heading(block.text, {"title": 0, "heading": 1, "subheading": 2}[block.kind])
+        elif block.kind == "table":
+            table = doc.add_table(rows=0, cols=len(block.rows[0]))
+            table.style = "Light Shading Accent 1"
+            widths = [8.5, 5, 3.5] if len(block.rows[0]) == 3 else [5.5, 3.5, 3, 2.5, 2.5]
+            table.autofit = False
+            for column, width in zip(table.columns, widths):
+                column.width = Cm(width)
+            for index, values in enumerate(block.rows):
+                for cell, value, width in zip(table.add_row().cells, values, widths):
+                    cell.width = Cm(width)
+                    cell.text = value
+                    if index == 0:
+                        for run in cell.paragraphs[0].runs:
+                            run.bold = True
+            # Repeat table headings if a list of assignments spans multiple pages.
+            from docx.oxml import OxmlElement
+            table.rows[0]._tr.get_or_add_trPr().append(OxmlElement("w:tblHeader"))
+            doc.add_paragraph()
+        elif block.kind == "speaker":
+            paragraph = doc.add_paragraph()
+            paragraph.paragraph_format.keep_with_next = True
+            paragraph.add_run(block.text).bold = True
+        else:
+            doc.add_paragraph(block.text)
     stream = BytesIO()
     doc.save(stream)
     return stream.getvalue()
 
 
-def export_pdf(result: MeetingResult) -> bytes:
+def export_pdf(result: MeetingResult, include_details: bool = True) -> bytes:
     candidates = [Path(__file__).parent / "assets" / "DejaVuSans.ttf",
                   Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
                   Path("/usr/share/fonts/TTF/DejaVuSans.ttf")]
@@ -66,39 +67,51 @@ def export_pdf(result: MeetingResult) -> bytes:
     if "AlemUnicode" not in pdfmetrics.getRegisteredFontNames():
         pdfmetrics.registerFont(TTFont("AlemUnicode", str(font)))
     styles = getSampleStyleSheet()
-    for name in ("Normal", "Title", "Heading2"):
+    for name in ("Normal", "Title", "Heading2", "Heading3"):
         styles[name].fontName = "AlemUnicode"
+    styles["Normal"].fontSize = 10
     styles["Normal"].leading = 15
     story = []
-
-    def add(text: str, style="Normal"):
-        story.append(Paragraph(escape(text).replace("\n", "<br/>"), styles[style]))
-        story.append(Spacer(1, 6))
-
-    add(f"Протокол: {result.title}", "Title")
-    add(f"Дата: {result.meeting_date or 'не указана'} · Язык: {result.language}")
-    add("Саммари", "Heading2")
-    add(result.summary or "Не сформировано")
-    add("Решения", "Heading2")
-    for decision in result.decisions:
-        add(f"• {decision}")
-    add("Поручения", "Heading2")
-    for index, task in enumerate(result.tasks, 1):
-        add(f"{index}. {task.title}")
-        add(f"Ответственный: {task.owner} · Срок: {task.deadline} · Дата: {task.due_date or '—'}")
-        add(f"{task.status} · {task.urgency} · {task.area} · {'Проверено' if task.approved else 'Черновик'}")
-        add(f"Цитата [{task.timestamp:.1f} сек]: {task.evidence}")
-    add("Транскрипт", "Heading2")
-    for segment in result.transcript:
-        speaker = result.participants.get(segment.speaker, segment.speaker)
-        add(f"[{segment.start:.1f}–{segment.end:.1f}] {speaker}: {segment.text}")
-    if result.questions or result.warnings:
-        add("Нужно уточнить", "Heading2")
-        for question in result.questions + result.warnings:
-            add(question)
     stream = BytesIO()
-    SimpleDocTemplate(stream, pagesize=A4, title=result.title).build(story)
+    document = SimpleDocTemplate(stream, pagesize=A4, title=result.title,
+                                 leftMargin=48, rightMargin=48, topMargin=48, bottomMargin=48)
+
+    def paragraph(text, style="Normal"):
+        return Paragraph(escape(text).replace("\n", "<br/>"), styles[style])
+
+    for block in minutes_blocks(result, include_details):
+        if block.kind == "table":
+            fractions = [0.50, 0.29, 0.21] if len(block.rows[0]) == 3 else [0.31, 0.20, 0.19, 0.15, 0.15]
+            table = LongTable([[paragraph(cell) for cell in row] for row in block.rows],
+                              colWidths=[document.width * fraction for fraction in fractions],
+                              repeatRows=1, splitByRow=1, splitInRow=1, hAlign="LEFT")
+            table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e8edf5")),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#c5ccd8")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 7),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+                ("TOPPADDING", (0, 0), (-1, -1), 7),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+            ]))
+            story.append(table)
+        else:
+            style = {"title": "Title", "heading": "Heading2", "subheading": "Heading3", "speaker": "Heading3"}.get(block.kind, "Normal")
+            story.append(paragraph(block.text, style))
+        story.append(Spacer(1, 6))
+    document.build(story)
     return stream.getvalue()
+
+
+def export_txt(result: MeetingResult, include_details: bool = False) -> bytes:
+    parts = []
+    for block in minutes_blocks(result, include_details):
+        if block.kind == "table":
+            parts.append("\n".join("\t".join(cell.replace("\n", " ").replace("\t", " ") for cell in row)
+                                   for row in block.rows))
+        else:
+            parts.append(block.text)
+    return ("\n\n".join(parts) + "\n").encode("utf-8")
 
 
 def anonymize(result: MeetingResult) -> MeetingResult:
@@ -121,11 +134,13 @@ def anonymize(result: MeetingResult) -> MeetingResult:
 
     # Never redact structural ISO dates or identifiers with the phone-number rule.
     copy = result.model_copy(deep=True)
-    fields = ("title", "summary", "decisions", "questions", "warnings", "participants")
+    fields = ("title", "summary", "organization", "decisions", "questions", "warnings", "participants", "participant_roles")
     for field in fields:
         setattr(copy, field, clean(getattr(copy, field)))
     for segment in copy.transcript:
         segment.text = clean(segment.text)
+    for topic in copy.topics:
+        topic.title, topic.summary = clean(topic.title), clean(topic.summary)
     for task in copy.tasks:
         for field in ("title", "owner", "deadline", "evidence", "area"):
             setattr(task, field, clean(getattr(task, field)))

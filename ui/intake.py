@@ -27,6 +27,7 @@ def render_intake(repo, data_dir, config):
     st.subheader("Новое совещание")
     st.caption("1. Добавьте запись → 2. Запустите локальный анализ → 3. Проверьте и подтвердите поручения")
     title = st.text_input("Название совещания", placeholder="Например: планирование пилота")
+    organization = st.text_input("Организация (необязательно)", placeholder="Название организации для шапки протокола")
     meeting_date = st.date_input("Дата совещания", value=date.today(), help="Используется для сроков «завтра» / «ертең».")
     consent = st.checkbox("Участники уведомлены о записи и ИИ-транскрибации; у меня есть право обработать запись.")
     source = st.radio("Источник", ["Файл", "Микрофон", "Teams / Zoom / Meet", "Примеры записей"], horizontal=True)
@@ -92,6 +93,7 @@ def render_intake(repo, data_dir, config):
                 result = analyze(str(path), title.strip() or f"Совещание {meeting_date}",
                                  config["whisper"], config["gemma"], config["compute"], config["language"],
                                  config["token"] or None, meeting_date, progress=st.write, use_cache=not retry)
+                result.organization = organization.strip()
                 repo.save(result)
                 status.update(label="Протокол готов к проверке", state="complete")
             st.session_state["meeting_id"] = result.id
