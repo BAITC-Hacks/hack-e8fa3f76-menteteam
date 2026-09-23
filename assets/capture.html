@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Alem — запись совещания</title>
+<style>
+body{font:17px/1.6 system-ui;background:#f2f5fa;color:#18243c;margin:0;padding:32px}main{max-width:760px;margin:auto;background:white;border-radius:24px;padding:36px;box-shadow:0 12px 50px #18243c12}h1{line-height:1.2}input[type=url]{box-sizing:border-box;width:100%;padding:14px;border:1px solid #c4cddd;border-radius:8px}button,.link{display:inline-block;background:#2759c7;color:white;border:0;border-radius:9px;padding:12px 18px;font:inherit;cursor:pointer;margin:8px 8px 8px 0}button:disabled{opacity:.45;cursor:default}label{display:block;margin:16px 0}.hint{color:#536179;font-size:15px}#status{padding:16px;background:#eef4ff;border-radius:12px;white-space:pre-wrap}a{color:#2759c7}#stop{background:#a02c3c}
+</style>
+<main><p class="hint">ALEM MINUTES · ЛОКАЛЬНАЯ ЗАПИСЬ</p><h1>Совещание → готовый протокол</h1>
+<p>Откройте встречу в Chrome или Edge, войдите участником <strong>«Alem Minutes — ведётся запись»</strong>, отключите камеру и микрофон ассистента и дождитесь допуска организатора.</p>
+<input id="url" type="url" placeholder="Ссылка Teams, Zoom или Google Meet" aria-label="Ссылка встречи">
+<label><input id="consent" type="checkbox"> Участники уведомлены о записи и ИИ-транскрибации; запись разрешена.</label>
+<button id="join" disabled>Открыть встречу</button>
+<p>Для записи выберите вкладку встречи и включите <strong>«Поделиться аудио вкладки»</strong>. Аудио сохраняется на этом компьютере и обрабатывается локально после остановки.</p>
+<label><input id="mic" type="checkbox"> Добавить мой микрофон (если мой голос не слышен в аудио встречи)</label>
+<button id="start" disabled>Начать запись вкладки</button><button id="stop" disabled>Остановить и сохранить</button>
+<p id="status" role="status">Готово к записи. Максимальный размер — 200 МБ, длительность — 2 часа.</p>
+<a id="download" hidden>Скачать резервную копию</a>
+<p class="hint">После сохранения вернитесь в Alem Minutes, обновите список live-записей и запустите анализ. Выбор вкладки, вход в аккаунт и допуск участника выполняются вами. Страница не обходит ограничения платформы.</p></main>
+<script>
+const $=id=>document.getElementById(id), token='__TOKEN__';
+let recorder,streams=[],context,timer,started,bytes=0,chunks=[],saving=false;
+const headers=()=>({'X-Alem-Token':token,'X-Recording-Consent':'yes'});
+function ready(){const ok=$('consent').checked&&!saving&&!(recorder&&recorder.state==='recording');$('join').disabled=!ok;$('start').disabled=!ok;}
+$('consent').onchange=ready;
+$('join').onclick=async()=>{const win=window.open('about:blank','_blank');if(win)win.opener=null;try{const res=await fetch('/join',{method:'POST',headers:{...headers(),'Content-Type':'application/json'},body:JSON.stringify({url:$('url').value.trim()})});const data=await res.json();if(!res.ok)throw Error('Укажите действительную HTTPS-ссылку Teams, Zoom или Google Meet.');if(win)win.location=data.url;else throw Error('Разрешите всплывающее окно для открытия встречи.');}catch(e){if(win)win.close();$('status').textContent=e.message;}};
+function release(){streams.forEach(s=>s.getTracks().forEach(t=>t.stop()));streams=[];if(context){context.close();context=null;}clearInterval(timer);}
+function stop(){if(recorder&&recorder.state==='recording')recorder.stop();$('stop').disabled=true;}
+$('stop').onclick=stop;
+$('start').onclick=async()=>{saving=true;ready();chunks=[];bytes=0;$('download').hidden=true;try{
+if(!navigator.mediaDevices?.getDisplayMedia)throw Error('Откройте страницу локально в Chrome или Edge.');
+const display=await navigator.mediaDevices.getDisplayMedia({video:true,audio:true});streams.push(display);
+if(!display.getAudioTracks().length)throw Error('Аудиодорожка отсутствует. Выберите вкладку и включите передачу её аудио.');
+context=new AudioContext();await context.resume();const output=context.createMediaStreamDestination();
+context.createMediaStreamSource(new MediaStream(display.getAudioTracks())).connect(output);
+if($('mic').checked){const mic=await navigator.mediaDevices.getUserMedia({audio:true});streams.push(mic);context.createMediaStreamSource(mic).connect(output);}
+const type=['audio/webm;codecs=opus','audio/ogg;codecs=opus','audio/mp4'].find(t=>MediaRecorder.isTypeSupported(t));
+if(!type)throw Error('Этот браузер не поддерживает запись аудио.');
+recorder=new MediaRecorder(output.stream,{mimeType:type,audioBitsPerSecond:64000});
+recorder.ondataavailable=e=>{if(e.data.size){chunks.push(e.data);bytes+=e.data.size;if(bytes>=195*1024*1024)stop();}};
+recorder.onstop=async()=>{release();saving=true;ready();const blob=new Blob(chunks,{type});const link=$('download');link.href=URL.createObjectURL(blob);link.download='meeting.'+(type.includes('mp4')?'m4a':type.includes('ogg')?'ogg':'webm');link.hidden=false;$('status').textContent='Сохраняю локальную запись…';try{const res=await fetch('/upload',{method:'POST',headers:{...headers(),'Content-Type':type},body:blob});if(!res.ok)throw Error('Не удалось сохранить запись на сервере. Скачайте резервную копию.');$('status').textContent='Запись сохранена. Вернитесь в Alem Minutes и обновите список live-записей.';}catch(e){$('status').textContent=e.message;}finally{saving=false;ready();}};
+display.getVideoTracks()[0].onended=stop;recorder.start(1000);started=Date.now();saving=false;$('stop').disabled=false;ready();
+timer=setInterval(()=>{const seconds=Math.floor((Date.now()-started)/1000);$('status').textContent='● Запись '+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');if(seconds>=7200)stop();},1000);
+}catch(e){release();saving=false;ready();$('status').textContent=e.message;}};
+window.addEventListener('beforeunload',e=>{if(recorder?.state==='recording'||saving){e.preventDefault();e.returnValue='';}});
+</script></html>

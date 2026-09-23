@@ -1,13 +1,15 @@
-# Optional local diarization (installed by `./run-local.sh` via uv extra)
-# For pip use, prefer the locked project setup: uv sync --extra diarization.
-streamlit>=1.40,<2
+# Prefer uv sync --locked --extra ai --extra diarization for reproducible installs.
+streamlit>=1.45,<2
 pydantic>=2.8,<3
 python-dotenv>=1.0,<2
 python-docx>=1.1,<2
 reportlab>=4.2,<5
 faster-whisper>=1.2,<2
-requests>=2.32,<3
-torch>=2.8,<2.14
-transformers>=5.3,<6
+torch>=2.8,<2.9
+torchvision>=0.23,<0.24
+transformers>=5.5,<6
 accelerate>=1.4,<2
-pytest>=8,<9
+librosa>=0.11,<1
+pyannote.audio>=4,<5
+torchaudio>=2.8,<2.9
+torchcodec>=0.7,<0.8

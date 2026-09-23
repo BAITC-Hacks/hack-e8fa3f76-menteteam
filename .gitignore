@@ -8,6 +8,9 @@ data/cache/
 data/models/
 data/uploads/
 data/tasks.sqlite3*
+data/meetings.sqlite3*
+data/outbox/
+.streamlit/secrets.toml
 
 # Private meeting recordings
 /data/*.mp3
