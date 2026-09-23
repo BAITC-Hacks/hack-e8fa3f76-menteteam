@@ -5,10 +5,132 @@ import re
 import streamlit as st
 
 from core.grounding import UNKNOWN_OWNER, rename_participants
-from core.minutes import minutes_blocks, ordered_topics
-from core.models import MeetingTopic
+from core.minutes import minutes_blocks
+from core.models import DirectionReport
 from exporters import anonymize, export_docx, export_ics, export_json, export_pdf, export_txt
 from services.notifications import valid_email
+
+
+def _render_protocol_form(meeting, repo, model_config=None):
+    st.subheader("Имена, должности и протокол")
+    st.caption("Измените данные и нажмите «Сохранить протокол и участников». Изменения появятся в тексте и скачиваемых файлах.")
+    revision_key = f"protocol-revision-{meeting.id}"
+    revision = st.session_state.get(revision_key, 0)
+    if st.session_state.pop(f"protocol-saved-{meeting.id}", False):
+        st.success("Имена, должности и протокол сохранены.")
+    report_error = st.session_state.pop(f"report-error-{meeting.id}", "")
+    if report_error:
+        st.error(report_error)
+    speakers = list(dict.fromkeys([*(segment.speaker for segment in meeting.transcript),
+                                   *meeting.participants, *meeting.participant_roles,
+                                   *(report.speaker_id for report in meeting.reports if report.speaker_id)]))
+    speaker_choices = {"—": ""}
+    for speaker in speakers:
+        name = meeting.participants.get(speaker, speaker)
+        speaker_choices[f"{name} · {speaker}" if name != speaker else speaker] = speaker
+    speaker_labels = {value: key for key, value in speaker_choices.items()}
+    existing_reports = {report.id: report for report in meeting.reports}
+    with st.form(f"protocol-{meeting.id}-{revision}"):
+        names, roles = {}, {}
+        for index, speaker in enumerate(speakers, 1):
+            st.markdown(f"**Голос {index} · {speaker}**")
+            left, right = st.columns(2)
+            names[speaker] = left.text_input("Имя участника", value=meeting.participants.get(speaker, ""),
+                                            key=f"name-{meeting.id}-{speaker}-{revision}")
+            roles[speaker] = right.text_input("Должность / роль", value=meeting.participant_roles.get(speaker, ""),
+                                             key=f"role-{meeting.id}-{speaker}-{revision}")
+            segment = next((segment for segment in meeting.transcript if segment.speaker == speaker), None)
+            if segment:
+                st.caption(f"[{segment.start:.1f} с] {segment.text[:160]}")
+                if meeting.source_path and Path(meeting.source_path).is_file():
+                    st.audio(meeting.source_path, start_time=int(segment.start),
+                             end_time=max(int(segment.start) + 1, int(segment.end) + 1))
+            if speaker == "Спикер не определён":
+                st.caption("Эта метка объединяет неопределённые реплики. Указывайте имя, только если они принадлежат одному человеку.")
+        if not speakers:
+            st.info("В стенограмме пока нет участников.")
+        with st.expander("Шапка, саммари и таблица показателей"):
+            title = st.text_input("Тема совещания", meeting.title)
+            organization = st.text_input("Организация", meeting.organization)
+            summary = st.text_area("Саммари", meeting.summary, height=130)
+            st.markdown("**Направления / доклады, показатели и проблемы**")
+            st.caption("Можно исправлять ячейки, добавлять и удалять строки. Докладчик связывается с выбранным голосом; его имя обновляется при сохранении.")
+            for report in meeting.reports:
+                if report.review_required:
+                    st.warning(f"{report.direction}: сверьте числа с цитатой. Неподтверждённые значения оставлены пустыми.")
+                if report.evidence:
+                    st.caption(f"Источник · {report.direction}")
+                    st.write(report.evidence)
+            report_rows = [{"id": report.id, "Направление / доклад": report.direction,
+                            "Докладчик": speaker_labels.get(report.speaker_id, "—"),
+                            "Показатель": report.indicator, "Проблема": report.problem}
+                           for report in meeting.reports]
+            if not report_rows:
+                report_rows = [{"id": "", "Направление / доклад": "", "Докладчик": "—", "Показатель": "", "Проблема": ""}]
+            edited_rows = st.data_editor(
+                report_rows, num_rows="dynamic", hide_index=True, use_container_width=True,
+                key=f"reports-{meeting.id}-{revision}", disabled=["id"],
+                column_config={
+                    "id": None,
+                    "Направление / доклад": st.column_config.TextColumn("Направление / доклад"),
+                    "Докладчик": st.column_config.SelectboxColumn("Докладчик", options=list(speaker_choices)),
+                    "Показатель": st.column_config.TextColumn("Показатель"),
+                    "Проблема": st.column_config.TextColumn("Проблема"),
+                },
+            )
+            decisions = st.text_area("Решения — для приложения, по одному на строку", "\n".join(meeting.decisions))
+        save_clicked = st.form_submit_button("Сохранить протокол и участников", type="primary")
+        reports_clicked = False
+        if model_config:
+            reports_clicked = st.form_submit_button(
+                "Сохранить и сформировать таблицу показателей",
+                help="Сохраняет правки формы и заново заполняет таблицу по имеющейся стенограмме. Распознавание аудио не запускается.",
+                disabled=not meeting.transcript,
+            )
+        if save_clicked or reports_clicked:
+            reports, invalid = [], False
+            for row in edited_rows:
+                direction = str(row.get("Направление / доклад") or "").strip()
+                indicator = str(row.get("Показатель") or "").strip()
+                problem = str(row.get("Проблема") or "").strip()
+                speaker = speaker_choices.get(row.get("Докладчик"), "")
+                if not any((direction, indicator, problem, speaker)):
+                    continue
+                if not direction:
+                    invalid = True
+                    break
+                original = existing_reports.get(row.get("id"))
+                report = original.model_copy(deep=True) if original else DirectionReport(direction=direction)
+                if original and (direction, speaker, indicator, problem) != (
+                        original.direction, original.speaker_id, original.indicator, original.problem):
+                    report.evidence = ""
+                    report.review_required = False
+                report.direction, report.speaker_id = direction, speaker
+                report.indicator, report.problem = indicator, problem
+                reports.append(report)
+            if not title.strip():
+                st.error("Укажите тему совещания. Введённые имена и должности сохранены в форме.")
+            elif invalid:
+                st.error("Заполните название направления в каждой непустой строке таблицы. Введённые данные остаются в форме.")
+            else:
+                updated = rename_participants(meeting, names)
+                updated.participant_roles = {key: value.strip() for key, value in roles.items() if value.strip()}
+                updated.title, updated.organization = title.strip(), organization.strip()
+                updated.summary, updated.reports = summary, reports
+                updated.decisions = [line.strip() for line in decisions.splitlines() if line.strip()]
+                repo.save(updated)
+                if reports_clicked:
+                    from services.reports import rebuild_reports
+                    try:
+                        with st.spinner("Составляю таблицу показателей по стенограмме…"):
+                            updated = rebuild_reports(updated, model_config["gemma"], model_config.get("token") or None)
+                            repo.save_reports(updated.id, updated.reports, updated.questions)
+                    except Exception as exc:
+                        st.session_state[f"report-error-{meeting.id}"] = (
+                            f"Правки сохранены. Таблицу показателей обновить не удалось: {exc}")
+                st.session_state[revision_key] = revision + 1
+                st.session_state[f"protocol-saved-{meeting.id}"] = True
+                st.rerun()
 
 
 def _render_editor(meeting, repo):
@@ -16,75 +138,6 @@ def _render_editor(meeting, repo):
     st.caption(f"{meeting.meeting_date or 'Дата не указана'} · {meeting.language} · ID {meeting.id[:8]}")
     for warning in meeting.warnings:
         st.warning(warning)
-    speakers = list(dict.fromkeys(s.speaker for s in meeting.transcript if s.speaker != "Спикер не определён"))
-    with st.expander("Участники и голоса", expanded=bool(speakers) and not meeting.participants):
-        st.caption("Прослушайте реплику и подтвердите имя. Автор реплики и ответственный за поручение могут различаться.")
-        with st.form(f"participants-{meeting.id}"):
-            names, roles = {}, {}
-            for speaker in speakers:
-                segment = next(s for s in meeting.transcript if s.speaker == speaker)
-                names[speaker] = st.text_input(speaker, value=meeting.participants.get(speaker, ""), key=f"name-{meeting.id}-{speaker}")
-                roles[speaker] = st.text_input("Должность / роль (необязательно)", value=meeting.participant_roles.get(speaker, ""), key=f"role-{meeting.id}-{speaker}")
-                st.caption(f"[{segment.start:.1f} с] {segment.text[:160]}")
-                if meeting.source_path and Path(meeting.source_path).is_file():
-                    st.audio(meeting.source_path, start_time=int(segment.start), end_time=max(int(segment.start) + 1, int(segment.end) + 1))
-            if st.form_submit_button("Подтвердить имена"):
-                updated = rename_participants(meeting, names)
-                updated.participant_roles = {key: value.strip() for key, value in roles.items() if value.strip()}
-                repo.save(updated)
-                st.rerun()
-    revision_key = f"protocol-revision-{meeting.id}"
-    revision = st.session_state.get(revision_key, 0)
-    topics = ordered_topics(meeting)
-    with st.form(f"summary-{meeting.id}-{revision}"):
-        title = st.text_input("Тема совещания", meeting.title)
-        organization = st.text_input("Организация", meeting.organization)
-        summary = st.text_area("Саммари", meeting.summary, height=130)
-        decisions = st.text_area("Решения — по одному на строку", "\n".join(meeting.decisions))
-        edited_topics = []
-        segment_ids = [segment.id for segment in meeting.transcript]
-        segment_labels = {segment.id: f"[{segment.start:.0f} с] {segment.text[:90]}" for segment in meeting.transcript}
-        with st.expander("Темы: заголовки, саммари и границы стенограммы"):
-            st.caption("Каждая тема продолжается до начала следующей. Поручения распределяются по месту цитаты в записи.")
-            for index, topic in enumerate(topics, 1):
-                topic_title = st.text_input(f"Название темы {index}", topic.title)
-                if len(topics) == 1:
-                    topic_summary = summary
-                    st.caption("Для одной темы используется поле «Саммари» выше.")
-                else:
-                    topic_summary = st.text_area(f"Саммари темы {index}", topic.summary)
-                start = topic.start_segment_id
-                if segment_ids:
-                    start = st.selectbox(f"Первая реплика темы {index}", segment_ids,
-                                         index=segment_ids.index(start), format_func=segment_labels.get)
-                remove = st.checkbox(f"Убрать тему {index}", value=False)
-                if not remove:
-                    edited_topics.append(MeetingTopic(title=topic_title.strip(), summary=topic_summary.strip(), start_segment_id=start))
-            if segment_ids:
-                st.markdown("**Добавить тему**")
-                new_title = st.text_input("Название новой темы", value="")
-                new_start = st.selectbox("Первая реплика новой темы", segment_ids, format_func=segment_labels.get)
-                new_summary = st.text_area("Саммари новой темы", value="")
-                if new_title.strip():
-                    edited_topics.append(MeetingTopic(title=new_title.strip(), summary=new_summary.strip(), start_segment_id=new_start))
-        if st.form_submit_button("Сохранить протокол"):
-            starts = [topic.start_segment_id for topic in edited_topics]
-            if not title.strip() or any(not topic.title for topic in edited_topics):
-                st.error("Укажите тему совещания и названия разделов.")
-            elif len(starts) != len(set(starts)):
-                st.error("Две темы не могут начинаться с одной реплики. Выберите разные границы.")
-            else:
-                if len(edited_topics) == 1:
-                    edited_topics[0].summary = summary
-                meeting.title, meeting.organization = title.strip(), organization.strip()
-                meeting.summary = summary
-                meeting.topics = edited_topics
-                meeting.decisions = [line.strip() for line in decisions.splitlines() if line.strip()]
-                repo.save(meeting)
-                # A fresh form resets successful additions; invalid submissions
-                # retain their widget values under the unchanged form revision.
-                st.session_state[revision_key] = revision + 1
-                st.rerun()
     st.subheader("Проверка поручений")
     st.caption("Цитаты привязаны к распознанной речи. Перед подтверждением проверьте ответственного, дату и адрес получателя.")
     for task in meeting.tasks:
@@ -153,7 +206,8 @@ def _render_document(meeting, include_details):
             st.markdown(literal(block.text))
 
 
-def render_review(meeting, repo):
+def render_review(meeting, repo, model_config=None):
+    _render_protocol_form(meeting, repo, model_config)
     include_details = st.checkbox("Включить приложение: цитаты, таймкоды и статусы поручений", key=f"details-{meeting.id}")
     redacted = st.checkbox("Обезличенная копия для демонстрации", key=f"redact-{meeting.id}")
     output = anonymize(meeting) if redacted else meeting
@@ -161,7 +215,7 @@ def render_review(meeting, repo):
         st.caption("Подтверждённые имена и контакты заменены. Перед публикацией проверьте свободный текст на оставшиеся персональные данные.")
     preview, edit = st.tabs(["Готовый протокол", "Проверка и правки"])
     with preview:
-        st.caption("Структура как в образце: реплики по темам → саммари → таблицы поручений. Имена и должности можно подтвердить во вкладке «Проверка и правки».")
+        st.caption("Текст совещания → саммари и таблица показателей → единая таблица поручений. Имена и должности редактируются выше.")
         _render_document(output, include_details)
     with edit:
         _render_editor(meeting, repo)

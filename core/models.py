@@ -31,6 +31,15 @@ class MeetingTopic(BaseModel):
     summary: str = ""
     start_segment_id: str
 
+class DirectionReport(BaseModel):
+    id: str = Field(default_factory=lambda: uuid4().hex)
+    direction: str
+    speaker_id: str = ""
+    indicator: str = ""
+    problem: str = ""
+    evidence: str = ""
+    review_required: bool = False
+
 class MeetingResult(BaseModel):
     id: str = Field(default_factory=lambda: uuid4().hex)
     title: str
@@ -40,6 +49,7 @@ class MeetingResult(BaseModel):
     participants: dict[str, str] = Field(default_factory=dict)
     participant_roles: dict[str, str] = Field(default_factory=dict)
     topics: list[MeetingTopic] = Field(default_factory=list)
+    reports: list[DirectionReport] = Field(default_factory=list)
     source_path: str = ""
     warnings: list[str] = Field(default_factory=list)
     language: str = "unknown"

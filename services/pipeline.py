@@ -10,7 +10,7 @@ from application.process import ProcessMeeting, cache_key
 from core.models import MeetingResult
 from settings import DATA
 
-PIPELINE_VERSION = "local-6-themed-minutes"
+PIPELINE_VERSION = "local-7-report-tables"
 
 
 def analyze(path: str, title: str, asr_model: str, llm_model: str,

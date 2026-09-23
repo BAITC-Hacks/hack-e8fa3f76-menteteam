@@ -3,7 +3,7 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-from core.models import MeetingResult
+from core.models import DirectionReport, MeetingResult
 
 
 class SQLiteMeetings:
@@ -36,6 +36,19 @@ class SQLiteMeetings:
         with self.connect() as db:
             row = db.execute("SELECT payload FROM meetings WHERE id=?", (meeting_id,)).fetchone()
         return MeetingResult.model_validate_json(row[0]) if row else None
+
+    def save_reports(self, meeting_id: str, reports: list[DirectionReport], questions: list[str]) -> None:
+        """A long model job must not overwrite newer names, roles or task edits."""
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT payload FROM meetings WHERE id=?", (meeting_id,)).fetchone()
+            if row is None:
+                raise ValueError("Совещание уже удалено.")
+            current = MeetingResult.model_validate_json(row[0])
+            current.reports = reports
+            current.questions = list(dict.fromkeys([*current.questions, *questions]))
+            db.execute("UPDATE meetings SET payload=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                       (current.model_dump_json(), meeting_id))
 
     def list(self) -> list[MeetingResult]:
         with self.connect() as db:

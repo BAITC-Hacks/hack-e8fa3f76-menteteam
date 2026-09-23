@@ -31,7 +31,7 @@ def export_docx(result: MeetingResult, include_details: bool = True) -> bytes:
         elif block.kind == "table":
             table = doc.add_table(rows=0, cols=len(block.rows[0]))
             table.style = "Light Shading Accent 1"
-            widths = [8.5, 5, 3.5] if len(block.rows[0]) == 3 else [5.5, 3.5, 3, 2.5, 2.5]
+            widths = [17 * fraction for fraction in block.column_widths] if block.column_widths else [5.5, 3.5, 3, 2.5, 2.5]
             table.autofit = False
             for column, width in zip(table.columns, widths):
                 column.width = Cm(width)
@@ -81,7 +81,7 @@ def export_pdf(result: MeetingResult, include_details: bool = True) -> bytes:
 
     for block in minutes_blocks(result, include_details):
         if block.kind == "table":
-            fractions = [0.50, 0.29, 0.21] if len(block.rows[0]) == 3 else [0.31, 0.20, 0.19, 0.15, 0.15]
+            fractions = block.column_widths or [0.31, 0.20, 0.19, 0.15, 0.15]
             table = LongTable([[paragraph(cell) for cell in row] for row in block.rows],
                               colWidths=[document.width * fraction for fraction in fractions],
                               repeatRows=1, splitByRow=1, splitInRow=1, hAlign="LEFT")
@@ -141,6 +141,9 @@ def anonymize(result: MeetingResult) -> MeetingResult:
         segment.text = clean(segment.text)
     for topic in copy.topics:
         topic.title, topic.summary = clean(topic.title), clean(topic.summary)
+    for report in copy.reports:
+        for field in ("direction", "indicator", "problem", "evidence"):
+            setattr(report, field, clean(getattr(report, field)))
     for task in copy.tasks:
         for field in ("title", "owner", "deadline", "evidence", "area"):
             setattr(task, field, clean(getattr(task, field)))

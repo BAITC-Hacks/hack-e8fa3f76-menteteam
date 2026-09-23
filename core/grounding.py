@@ -1,8 +1,9 @@
 """Evidence and identity rules; no model, UI or persistence dependencies."""
 import re
 from datetime import date, timedelta
+from decimal import Decimal
 
-from core.models import MeetingResult, MeetingTopic, Segment, Task
+from core.models import DirectionReport, MeetingResult, MeetingTopic, Segment, Task
 
 UNKNOWN_OWNER = "Ответственный не определён"
 UNKNOWN_DEADLINE = "Срок не определён"
@@ -14,6 +15,11 @@ def normalize(value: str) -> str:
 
 def contains_phrase(text: str, phrase: str) -> bool:
     return bool(re.search(r"(?<!\w)" + re.escape(normalize(phrase)) + r"(?!\w)", normalize(text)))
+
+
+def numeric_values(text: str) -> set[Decimal]:
+    return {Decimal(value.replace(",", "."))
+            for value in re.findall(r"(?<!\w)\d+(?:[.,]\d+)?(?!\w)", text)}
 
 
 def resolve_date(deadline: str, meeting_date: date | None) -> date | None:
@@ -97,9 +103,38 @@ def build_result(title: str, segments: list[Segment], language: str, data: dict,
                 topics[-1].summary = "\n\n".join(filter(None, [topics[-1].summary, topic.summary]))
         else:
             topics.append(topic)
+    reports, report_signatures = [], set()
+    for raw in data.get("reports", []):
+        direction = str(raw.get("direction") or "").strip()
+        evidence = str(raw.get("evidence") or "").strip()
+        quote_norm = normalize(evidence)
+        offset = text.find(quote_norm) if quote_norm else -1
+        if not direction or offset < 0:
+            questions.append(f"Доклад «{direction or 'без названия'}» не включён в таблицу: цитата не найдена в речи.")
+            continue
+        speakers = {segment.speaker for start, end, segment in offsets
+                    if start < offset + len(quote_norm) and end > offset}
+        signature = (normalize(direction), quote_norm)
+        if signature in report_signatures:
+            continue
+        report_signatures.add(signature)
+        indicator = str(raw.get("indicator") or "").strip()
+        problem = str(raw.get("problem") or "").strip()
+        values, review_required = [], False
+        for label, value in (("Показатель", indicator), ("Проблема", problem)):
+            if numeric_values(value) - numeric_values(evidence):
+                questions.append(f"Доклад «{direction}»: проверьте поле «{label}» — «{value}». "
+                                 "Цифры не подтверждены цитатой; поле оставлено пустым. Числа, произнесённые словами, требуют сверки.")
+                values.append("")
+                review_required = True
+            else:
+                values.append(value)
+        reports.append(DirectionReport(
+            direction=direction, speaker_id=next(iter(speakers)) if len(speakers) == 1 else "",
+            indicator=values[0], problem=values[1], evidence=evidence, review_required=review_required))
     return MeetingResult(title=title, meeting_date=meeting_date, summary=data.get("summary", ""),
                          language=language, decisions=data.get("decisions", []), tasks=tasks,
-                         questions=list(dict.fromkeys(questions)), transcript=segments, topics=topics)
+                         questions=list(dict.fromkeys(questions)), transcript=segments, topics=topics, reports=reports)
 
 
 def rename_participants(meeting: MeetingResult, names: dict[str, str]) -> MeetingResult:

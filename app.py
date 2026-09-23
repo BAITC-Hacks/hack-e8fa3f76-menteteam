@@ -80,7 +80,7 @@ with history:
             st.session_state["meeting_id"] = meetings[0].id
         selected = st.selectbox("История совещаний", list(labels), format_func=labels.get, key="meeting_id")
         meeting = repo.get(selected)
-        render_review(meeting, repo)
+        render_review(meeting, repo, dict(gemma=gemma, token=token))
 
 st.divider()
 with st.expander("Локальные данные и приватность"):
