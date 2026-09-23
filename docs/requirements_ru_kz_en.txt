@@ -1,0 +1,193 @@
+﻿RU
+Кейс Система автопротоколирования совещаний с фиксацией поручений
+Проблема и ценность
+Протоколы совещаний фиксируются вручную секретарями, что занимает много времени и создаёт риск потери или искажения поручений, сроков и ответственных лиц. Как следствие — снижается контроль исполнительской дисциплины. Автоматизация протоколирования освободит время секретарей и повысит прозрачность контроля за исполнением поручений.
+Пользователь и сценарий
+Сценарий 1. Секретарь совещания включает запись → участников уведомляют, что ведётся запись и транскрибация с помощью ИИ → система фиксирует реплики, распознаёт поручения (кто, что, к какому сроку) → по итогам совещания формируется саммари → управленческие сотрудники используют саммари для отслеживания хода работы и контроля сроков.
+Сценарий 2. Руководитель/куратор поручения получает автоматическое напоминание при приближении срока исполнения или при его просрочке.
+Техническая задача
+Разработать прототип ИИ-ассистента (например: бот/веб-интерфейс + backend + модуль распознавания речи), который:
+* распознаёт речь участников (speech-to-text) на русском, казахском и «шала-казахском» (смешанной речи);
+* различает говорящих (диаризация) и привязывает поручения к конкретному участнику;
+* выделяет из транскрипта поручения с указанием ответственного лица и срока;
+* формирует итоговое саммари совещания.
+Вход и выход
+* Вход: Возможность подключаться в качестве участника teams, zoom, google meet, аудио/видеозапись совещания (или live-поток).
+* Выход: текстовый протокол/транскрипт + структурированный список поручений (ответственный, срок, суть) + краткое саммари; экспорт итогового протокола в файл (PDF/DOCX).
+Данные и доступ
+Участники сами предоставляют тестовую аудиозапись совещания (реальную или смоделированную) на русском/казахском/смешанном языке. Использование синтетических/смоделированных записей допускается. При использовании реальных записей — данные должны быть анонимизированы для демонстрации.
+Обязательный минимум
+1. Распознавание речи участников.
+2. Понимание русского языка.
+3. Понимание казахского языка.
+4. Понимание шала-казахского (смешанной речи).
+5. Автоматическое выделение поручений с ответственным и сроком.
+6. Различение говорящих (диаризация) с привязкой поручения к конкретному человеку.
+7. Экспорт итогового протокола в файл (PDF/DOCX).
+Дополнительно
+* интеграция с системами электронного документооборота (СЭД);
+* дашборд со статусами поручений (в работе / просрочено / выполнено);
+* автоматическая рассылка выдержки из протокола ответственным лицам;
+* классификация поручений по срочности/направлению;
+* голосовая идентификация участников по тембру;
+* возможность развёртывания проекта в закрытом контуре заказчика (on-premise).
+Ограничения
+* Решение должно допускать размещение в закрытом контуре заказчика; передача аудио/текста во внешние облачные API запрещена — участникам следует использовать локальные/self-hosted модели распознавания речи.
+* Работа с чувствительной информацией — приватность и защита данных обязательны.
+* Полноценная интеграция с СЭД и промышленное развёртывание — вне обязательной части.
+________________
+
+
+
+
+Критерий
+	Что оцениваем
+	Баллы
+	Соответствие задаче и работоспособность
+	Оценивается, насколько решение соответствует поставленной задаче и позволяет реализовать основной заявленный сценарий.
+	25
+	Техническая реализация
+	Оценивается качество технической реализации решения: выбранный подход, архитектура, взаимодействие компонентов, использование AI/agentic AI и других технологий. Учитывается соответствие фактической реализации заявленной логике проекта.
+	25
+	README и воспроизводимость
+	Оценивается, насколько документация позволяет понять устройство проекта, используемые технологии, порядок запуска и основной сценарий работы. Также учитывается возможность воспроизвести и проверить решение на основании материалов репозитория.
+	25
+	Ценность и применимость решения
+	Оценивается, насколько решение отвечает обозначенной проблеме. Учитывается практическая применимость представленного подхода.
+	15
+	Потенциал развития и оригинальность подхода
+	Оценивается потенциал дальнейшего развития решения, его применения в более широком масштабе, а также наличие обоснованных нестандартных или оригинальных подходов к реализации задачи.
+	10
+	Итого
+	—
+	100
+	
+
+KZ
+Кейс: Кеңес хаттамасын тапсырмаларды тіркей отырып автоматты түрде жүргізу жүйесі
+Мәселе және құндылығы
+Кеңес хаттамаларын хатшылар қолмен жүргізеді. Бұл көп уақыт алады және тапсырмалардың, мерзімдердің және жауапты тұлғалардың жоғалу немесе бұрмалану қаупін туғызады. Нәтижесінде атқарушылық тәртіпті бақылау әлсірейді. Хаттама жүргізуді автоматтандыру хатшылардың уақытын босатады және тапсырмалардың орындалуын бақылаудың ашықтығын арттырады.
+Пайдаланушы және сценарий
+1-сценарий. Кеңес хатшысы жазбаны қосады → қатысушыларға ЖИ көмегімен жазба және транскрипция жүргізіліп жатқаны туралы хабарланады → жүйе сөйлемдерді тіркейді, тапсырмаларды (кім, не, қай мерзімге дейін) анықтайды → кеңес қорытындысы бойынша түйіндеме қалыптастырылады → басшы қызметкерлер түйіндемені жұмыс барысын қадағалау және мерзімдерді бақылау үшін пайдаланады.
+2-сценарий. Тапсырманың басшысы/кураторы орындау мерзімі жақындағанда немесе мерзімі өтіп кеткенде автоматты еске салғыш алады.
+Техникалық міндет
+ЖИ-көмекшінің прототипін әзірлеу (мысалы: бот/веб-интерфейс + backend + сөйлеуді тану модулі), ол:
+* қатысушылардың сөзін орыс, қазақ және «шала қазақ» (аралас) тілдерінде таниды (speech-to-text);
+* сөйлеушілерді ажыратады (диаризация) және тапсырмаларды нақты қатысушыға байланыстырады;
+* транскрипттен жауапты тұлға мен мерзімді көрсете отырып тапсырмаларды бөліп алады;
+* кеңестің қорытынды түйіндемесін қалыптастырады.
+Кіріс және шығыс
+* Кіріс: Teams, Zoom, Google Meet платформаларына қатысушы ретінде қосылу мүмкіндігі, кеңестің аудио/бейнежазбасы (немесе тікелей ағын).
+* Шығыс: мәтіндік хаттама/транскрипт + тапсырмалардың құрылымдалған тізімі (жауапты тұлға, мерзім, мазмұны) + қысқаша түйіндеме; қорытынды хаттаманы файлға (PDF/DOCX) экспорттау.
+Деректер және қолжетімділік
+Қатысушылар кеңестің тестілік аудиожазбасын (нақты немесе модельденген) орыс/қазақ/аралас тілде өздері ұсынады. Синтетикалық/модельденген жазбаларды пайдалануға рұқсат етіледі. Нақты жазбалар пайдаланылған жағдайда демонстрация үшін деректер анонимдендірілуі тиіс.
+Міндетті минимум
+1. Қатысушылардың сөзін тану.
+2. Орыс тілін түсіну.
+3. Қазақ тілін түсіну.
+4. Шала қазақ тілін (аралас сөйлеуді) түсіну.
+5. Тапсырмаларды жауапты тұлғасы мен мерзімін көрсете отырып автоматты түрде бөліп алу.
+6. Сөйлеушілерді ажырату (диаризация) және тапсырманы нақты адамға байланыстыру.
+7. Қорытынды хаттаманы файлға (PDF/DOCX) экспорттау.
+Қосымша
+* электрондық құжат айналымы жүйелерімен (ЭҚАЖ) интеграция;
+* тапсырмалар мәртебелерінің дашборды (орындалуда / мерзімі өткен / орындалды);
+* хаттамадан үзіндіні жауапты тұлғаларға автоматты түрде жіберу;
+* тапсырмаларды шұғылдығы/бағыты бойынша жіктеу;
+* қатысушыларды дауыс тембрі бойынша анықтау;
+* жобаны тапсырыс берушінің жабық контурында (on-premise) орналастыру мүмкіндігі.
+Шектеулер
+* Шешім тапсырыс берушінің жабық контурында орналастыруға мүмкіндік беруі тиіс; аудио/мәтінді сыртқы бұлттық API-ға беруге тыйым салынады — қатысушылар сөйлеуді танудың жергілікті/self-hosted модельдерін пайдалануы керек.
+* Құпия ақпаратпен жұмыс — жекелік пен деректерді қорғау міндетті.
+* ЭҚАЖ-бен толыққанды интеграция және өнеркәсіптік орналастыру міндетті бөлікке кірмейді.
+________________
+
+
+
+
+Критерий
+	Нені бағалаймыз
+	Ұпай
+	Тапсырмаға сәйкестігі және жұмыс істеу қабілеті
+	Шешімнің қойылған тапсырмаға қаншалықты сәйкес келетіні және мәлімделген негізгі сценарийді іске асыруға мүмкіндік беретіні бағаланады.
+	25
+	Техникалық іске асыру
+	Шешімнің техникалық іске асырылу сапасы бағаланады: таңдалған тәсіл, архитектура, компоненттердің өзара әрекеттесуі, AI/agentic AI және басқа технологияларды пайдалану. Нақты іске асырудың жобаның мәлімделген логикасына сәйкестігі ескеріледі.
+	25
+	README және қайта іске қосу мүмкіндігі
+	Құжаттаманың жоба құрылымын, пайдаланылған технологияларды, іске қосу тәртібін және негізгі жұмыс сценарийін түсінуге қаншалықты мүмкіндік беретіні бағаланады. Сондай-ақ репозиторий материалдары негізінде шешімді қайта іске қосу және тексеру мүмкіндігі ескеріледі.
+	25
+	Шешімнің құндылығы және қолданылуы
+	Шешімнің көрсетілген мәселені қаншалықты шешетіні бағаланады. Ұсынылған тәсілдің практикалық қолданылуы ескеріледі.
+	15
+	Даму әлеуеті және тәсілдің бірегейлігі
+	Шешімді одан әрі дамыту және оны кең ауқымда қолдану әлеуеті, сондай-ақ тапсырманы іске асырудағы негізделген стандарттан тыс немесе бірегей тәсілдердің болуы бағаланады.
+	10
+	Барлығы
+	—
+	100
+	
+
+EN
+Case: Automated Meeting Minutes System with Action Item Tracking
+Problem and Value
+Meeting minutes are recorded manually by secretaries, which takes a lot of time and creates a risk of losing or distorting action items, deadlines, and responsible persons. As a result, control over execution discipline weakens. Automating minute-taking will free up secretaries' time and increase transparency in monitoring the execution of assignments.
+User and Scenario
+Scenario 1. The meeting secretary starts the recording → participants are notified that the meeting is being recorded and transcribed using AI → the system captures what is said and identifies action items (who, what, by when) → a summary is generated at the end of the meeting → management staff use the summary to track progress and monitor deadlines.
+Scenario 2. The manager/supervisor of an assignment receives an automatic reminder when the deadline is approaching or has been missed.
+Technical Task
+Develop a prototype AI assistant (e.g., bot/web interface + backend + speech recognition module) that:
+* recognizes participants' speech (speech-to-text) in Russian, Kazakh, and "Shala-Kazakh" (mixed Russian-Kazakh speech);
+* distinguishes between speakers (diarization) and links action items to specific participants;
+* extracts action items from the transcript, indicating the responsible person and deadline;
+* generates a final meeting summary.
+Input and Output
+* Input: ability to join Teams, Zoom, or Google Meet as a participant; an audio/video recording of the meeting (or a live stream).
+* Output: text minutes/transcript + a structured list of action items (responsible person, deadline, description) + a brief summary; export of the final minutes to a file (PDF/DOCX).
+Data and Access
+Participants provide their own test audio recording of a meeting (real or simulated) in Russian/Kazakh/mixed language. Synthetic/simulated recordings are allowed. If real recordings are used, the data must be anonymized for the demonstration.
+Mandatory Minimum
+1. Recognition of participants' speech.
+2. Understanding of Russian.
+3. Understanding of Kazakh.
+4. Understanding of Shala-Kazakh (mixed speech).
+5. Automatic extraction of action items with responsible person and deadline.
+6. Speaker distinction (diarization) with action items linked to a specific person.
+7. Export of the final minutes to a file (PDF/DOCX).
+Optional
+* integration with electronic document management systems (EDMS);
+* a dashboard with action item statuses (in progress / overdue / completed);
+* automatic distribution of minute excerpts to responsible persons;
+* classification of action items by urgency/area;
+* voice identification of participants by timbre;
+* the ability to deploy the project in the client's closed environment (on-premise).
+Constraints
+* The solution must support deployment within the client's closed (on-premises) environment; sending audio/text to external cloud APIs is prohibited — participants should use local/self-hosted speech recognition models.
+* Sensitive information is involved — privacy and data protection are mandatory.
+* Full EDMS integration and production deployment are outside the mandatory scope.
+________________
+
+
+
+
+Criterion
+	What is evaluated
+	Points
+	Compliance with the task and functionality
+	The assessment considers how well the solution meets the assigned task and enables the main stated scenario to be implemented.
+	25
+	Technical implementation
+	The quality of the solution’s technical implementation is assessed, including the selected approach, architecture, interaction between components, and use of AI/agentic AI and other technologies. The consistency of the actual implementation with the stated project logic is taken into account.
+	25
+	README and reproducibility
+	The assessment considers whether the documentation makes it possible to understand the project structure, technologies used, launch procedure, and main operating scenario. The possibility of reproducing and checking the solution based on the repository materials is also taken into account.
+	25
+	Value and applicability of the solution
+	The assessment considers how well the solution addresses the stated problem. The practical applicability of the proposed approach is taken into account.
+	15
+	Development potential and originality of the approach
+	The assessment considers the potential for further development of the solution and its use at a broader scale, as well as the presence of well-founded unconventional or original approaches to implementing the task.
+	10
+	Total
+	—
+	100
