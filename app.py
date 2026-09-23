@@ -39,7 +39,9 @@ with st.sidebar:
         default_compute = os.getenv("WHISPER_COMPUTE", "int8_float16")
         compute = st.selectbox("Точность Whisper", compute_types, index=compute_types.index(default_compute) if default_compute in compute_types else 0)
         st.caption(f"Устройство: {os.getenv('AI_DEVICE', 'cuda')}. T4: Gemma FP16; модели освобождают VRAM между этапами.")
-        token = st.text_input("HF token для загрузки весов", os.getenv("HF_TOKEN", ""), type="password")
+        token_override = st.text_input("HF token для загрузки весов", value="", type="password",
+                                       placeholder="Серверный токен настроен" if os.getenv("HF_TOKEN") else "Не задан")
+        token = token_override or os.getenv("HF_TOKEN", "")
     st.divider()
     st.write("Попробовать без загрузки моделей")
     st.caption("Синтетический пример показывает проверку поручений и экспорт. Он не измеряет качество распознавания.")
@@ -57,7 +59,7 @@ with st.sidebar:
         st.caption("Доставка через SMTP включается отдельным параметром --send после настройки .env.")
 
 meetings = repo.list()
-control, intake, history = st.tabs(["Обзор поручений", "Новое совещание", "Протоколы"])
+intake, control, history = st.tabs(["Новое совещание", "Обзор поручений", "Протоколы"])
 with control:
     render_dashboard(meetings)
 with intake:

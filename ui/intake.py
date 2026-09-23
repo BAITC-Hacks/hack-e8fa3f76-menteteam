@@ -9,6 +9,14 @@ from services.pipeline import analyze
 from settings import ROOT
 
 
+MEDIA_FORMATS = {
+    "mp3": "audio/mpeg", "wav": "audio/wav", "m4a": "audio/mp4",
+    "flac": "audio/flac", "aac": "audio/aac", "ogg": "audio/ogg",
+    "opus": "audio/ogg", "mpga": "audio/mpeg", "mp4": "video/mp4",
+    "webm": "video/webm", "mpeg": "video/mpeg",
+}
+
+
 @st.cache_resource
 def capture_service(directory: str, port: int):
     from services.capture import start_capture
@@ -24,7 +32,14 @@ def render_intake(repo, data_dir, config):
     source = st.radio("Источник", ["Файл", "Микрофон", "Teams / Zoom / Meet", "Примеры записей"], horizontal=True)
     audio, path = None, None
     if source == "Файл":
-        audio = st.file_uploader("Аудио или видео", type=["mp3", "wav", "m4a", "mp4", "webm", "ogg", "mpeg", "mpga"], disabled=not consent)
+        st.caption("Загрузите запись с вашего устройства: MP3, WAV, M4A, FLAC, AAC, OGG, OPUS, MPGA, MP4, WebM или MPEG. До 200 МБ на файл.")
+        if not consent:
+            st.info("Чтобы выбрать файл, отметьте выше подтверждение права на обработку записи.")
+        audio = st.file_uploader(
+            "Загрузить MP3 или другую запись", type=list(MEDIA_FORMATS),
+            help="Перетащите файл сюда или нажмите Browse files. Обработка выполняется на сервере.",
+            disabled=not consent,
+        )
     elif source == "Микрофон":
         audio = st.audio_input("Записать совещание", disabled=not consent)
     elif source == "Teams / Zoom / Meet":
@@ -52,7 +67,13 @@ def render_intake(repo, data_dir, config):
         else:
             st.info("Примеры не установлены — загрузите свою запись.")
     if audio:
-        st.audio(audio)
+        st.caption(f"Выбрано: {audio.name} · {audio.size / (1024 * 1024):.1f} МБ")
+        media_format = MEDIA_FORMATS.get(Path(audio.name).suffix.lower().lstrip("."), "audio/wav")
+        if media_format.startswith("video/"):
+            st.video(audio, format=media_format)
+        else:
+            st.audio(audio, format=media_format)
+        st.caption("Нажмите «Распознать и составить протокол», чтобы начать обработку.")
     elif path:
         st.audio(str(path))
     retry = st.checkbox("Повторить анализ без кэша")
@@ -67,7 +88,7 @@ def render_intake(repo, data_dir, config):
                 path = directory / f"{uuid4().hex}{suffix}"
                 path.write_bytes(audio.getvalue())
                 path.chmod(0o600)
-            with st.status("Обработка на этом компьютере…", expanded=True) as status:
+            with st.status("Обработка записи на сервере…", expanded=True) as status:
                 result = analyze(str(path), title.strip() or f"Совещание {meeting_date}",
                                  config["whisper"], config["gemma"], config["compute"], config["language"],
                                  config["token"] or None, meeting_date, progress=st.write, use_cache=not retry)
