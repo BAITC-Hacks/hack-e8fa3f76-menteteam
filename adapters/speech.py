@@ -54,7 +54,7 @@ def align_speakers(chunks, turns) -> list[Segment]:
 
 
 class LocalSpeech:
-    def __init__(self, model: str = "small", compute_type: str = "int8_float16", language: str = "auto",
+    def __init__(self, model: str = "large-v3", compute_type: str = "int8_float16", language: str = "auto",
                  hf_token: str | None = None, diarization: str = "pyannote/speaker-diarization-community-1"):
         self.model, self.compute_type, self.language = model, compute_type, language
         self.hf_token, self.diarization = hf_token, diarization

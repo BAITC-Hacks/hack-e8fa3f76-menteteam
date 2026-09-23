@@ -32,7 +32,7 @@ with st.sidebar:
     st.success("Офлайн-режим" if OFFLINE else "Локальный ИИ · загрузка весов разрешена")
     st.caption("Whisper + Gemma работают в Python на этом компьютере. При первом запуске нужны веса моделей.")
     with st.expander("Настройки моделей"):
-        whisper = st.text_input("Whisper: модель или локальный каталог", os.getenv("WHISPER_MODEL", "small"))
+        whisper = st.text_input("Whisper: модель или локальный каталог", os.getenv("WHISPER_MODEL", "large-v3"))
         gemma = st.text_input("Gemma: модель или локальный каталог", os.getenv("GEMMA_MODEL", "google/gemma-4-E2B-it"))
         language = st.selectbox("Язык записи", ["auto", "ru", "kk"], format_func={"auto": "Авто / смешанная речь", "ru": "Русский", "kk": "Қазақша"}.get)
         compute_types = ["int8_float16", "float16", "int8", "float32"]

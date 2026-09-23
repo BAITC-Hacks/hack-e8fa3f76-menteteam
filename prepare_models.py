@@ -11,7 +11,7 @@ from settings import MODEL_CACHE, OFFLINE
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--whisper", default="small")
+    parser.add_argument("--whisper", default="large-v3")
     parser.add_argument("--gemma", default="google/gemma-4-E2B-it")
     parser.add_argument("--skip-diarization", action="store_true")
     args = parser.parse_args()

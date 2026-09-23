@@ -23,7 +23,7 @@ def main():
     parser.add_argument("--no-cache", action="store_true")
     args = parser.parse_args()
     start = time.monotonic()
-    result = analyze(str(args.audio), args.title, os.getenv("WHISPER_MODEL", "small"),
+    result = analyze(str(args.audio), args.title, os.getenv("WHISPER_MODEL", "large-v3"),
                      os.getenv("GEMMA_MODEL", "google/gemma-4-E2B-it"), language=args.language,
                      compute_type=os.getenv("WHISPER_COMPUTE", "int8_float16"),
                      hf_token=os.getenv("HF_TOKEN"), meeting_date=args.date,
