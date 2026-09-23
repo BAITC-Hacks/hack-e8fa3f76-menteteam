@@ -2,17 +2,23 @@
 from functools import lru_cache
 from pathlib import Path
 
+from core.languages import LANGUAGE_MODES, SPEECH_LANGUAGES
 from core.models import Segment
 from settings import MODEL_CACHE, OFFLINE
 from adapters.runtime import INFERENCE_LOCK, lifecycle, runtime
+from adapters.whisper_languages import RestrictedLanguageModel
 
 
 @lru_cache(maxsize=1)
 def whisper_model(name: str, compute_type: str):
     from faster_whisper import WhisperModel
     device, _ = runtime()
-    return WhisperModel(name, device=device, compute_type=compute_type,
-                        download_root=str(MODEL_CACHE), local_files_only=OFFLINE)
+    model = WhisperModel(name, device=device, compute_type=compute_type,
+                         download_root=str(MODEL_CACHE), local_files_only=OFFLINE)
+    if not model.model.is_multilingual:
+        raise ValueError("Выберите многоязычный Whisper, например large-v3, для kk / ru / en.")
+    model.model = RestrictedLanguageModel(model.model)
+    return model
 
 
 @lru_cache(maxsize=1)
@@ -56,6 +62,8 @@ def align_speakers(chunks, turns) -> list[Segment]:
 class LocalSpeech:
     def __init__(self, model: str = "large-v3", compute_type: str = "int8_float16", language: str = "auto",
                  hf_token: str | None = None, diarization: str = "pyannote/speaker-diarization-community-1"):
+        if language not in LANGUAGE_MODES:
+            raise ValueError("Язык записи: auto, kk, ru или en.")
         self.model, self.compute_type, self.language = model, compute_type, language
         self.hf_token, self.diarization = hf_token, diarization
 
@@ -63,10 +71,20 @@ class LocalSpeech:
         with INFERENCE_LOCK:
             lifecycle.activate("speech")
             try:
-                chunks, info = whisper_model(self.model, self.compute_type).transcribe(
-                    path, language=None if self.language == "auto" else self.language,
+                model = whisper_model(self.model, self.compute_type)
+                model.model.detected_languages.clear()
+                automatic = self.language == "auto"
+                chunks, info = model.transcribe(
+                    path, language=None if automatic else self.language,
+                    multilingual=automatic,
+                    # Previous-language text can bias the next window into translation.
+                    condition_on_previous_text=not automatic,
                     task="transcribe", vad_filter=True, word_timestamps=True, beam_size=5)
                 recognized = list(chunks)
+                language = (
+                    " / ".join(code for code in SPEECH_LANGUAGES if code in model.model.detected_languages)
+                    if automatic else self.language
+                ) or info.language
             except Exception as exc:
                 raise RuntimeError(f"Whisper: не удалось распознать запись: {exc}") from exc
             turns, warning = [], None
@@ -86,7 +104,7 @@ class LocalSpeech:
             except Exception as exc:
                 warning = ("Диаризация не выполнена. Установите extra diarization, подготовьте веса Community-1 "
                            f"и HF_TOKEN или локальный DIARIZATION_MODEL. Причина: {type(exc).__name__}.")
-            return align_speakers(recognized, turns), info.language, warning
+            return align_speakers(recognized, turns), language, warning
 
 
 def release_models():

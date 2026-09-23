@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
 from adapters.repository import SQLiteMeetings
+from core.languages import LANGUAGE_MODES
 from services.demo import demo_meeting
 from services.notifications import dispatch
 from settings import DATA, OFFLINE
@@ -34,7 +35,11 @@ with st.sidebar:
     with st.expander("Настройки моделей"):
         whisper = st.text_input("Whisper: модель или локальный каталог", os.getenv("WHISPER_MODEL", "large-v3"))
         gemma = st.text_input("Gemma: модель или локальный каталог", os.getenv("GEMMA_MODEL", "google/gemma-4-E2B-it"))
-        language = st.selectbox("Язык записи", ["auto", "ru", "kk"], format_func={"auto": "Авто / смешанная речь", "ru": "Русский", "kk": "Қазақша"}.get)
+        language = st.selectbox(
+            "Язык записи", LANGUAGE_MODES,
+            format_func={"auto": "Авто: KZ / RU / EN · шала қазақша", "ru": "Русский", "kk": "Қазақша", "en": "English"}.get,
+        )
+        st.caption("Авто выбирает только қазақша, русский и English по фрагментам записи. Для шала қазақша оставьте «Авто».")
         compute_types = ["int8_float16", "float16", "int8", "float32"]
         default_compute = os.getenv("WHISPER_COMPUTE", "int8_float16")
         compute = st.selectbox("Точность Whisper", compute_types, index=compute_types.index(default_compute) if default_compute in compute_types else 0)

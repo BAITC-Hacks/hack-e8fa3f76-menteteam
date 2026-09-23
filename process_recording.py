@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from services.pipeline import analyze
+from core.languages import LANGUAGE_MODES
 
 
 def main():
@@ -18,7 +19,8 @@ def main():
     parser.add_argument("audio", type=Path)
     parser.add_argument("--title", default="Совещание")
     parser.add_argument("--date", type=date.fromisoformat, default=None)
-    parser.add_argument("--language", choices=["auto", "ru", "kk"], default="auto")
+    parser.add_argument("--language", choices=LANGUAGE_MODES, default="auto",
+                        help="auto: определение kk/ru/en по фрагментам, включая смешанную речь")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--no-cache", action="store_true")
     args = parser.parse_args()
