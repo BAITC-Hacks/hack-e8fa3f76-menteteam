@@ -1,4 +1,16 @@
 # Alem Minutes
+<img width="1366" height="632" alt="{CA907184-4164-4CE2-AABE-3F45A88A09BB}" src="https://github.com/user-attachments/assets/399c4731-85dc-4677-a8a3-2ad5d5907e34" />
+<img width="1365" height="635" alt="{7D64D33B-CD4F-4CE0-A15B-2A30BD702F83}" src="https://github.com/user-attachments/assets/9f5369a0-5db9-4d0c-a86d-48aa17f3c7c1" />
+<img width="1366" height="637" alt="{06117EB9-A974-407B-8367-AB25D576262F}" src="https://github.com/user-attachments/assets/66816722-8c9b-4d2b-b397-25e67c62c47f" />
+<img width="1215" height="402" alt="{3A73A505-565A-47AF-9A27-76D01A25CB50}" src="https://github.com/user-attachments/assets/e394b30f-2c2d-4b07-9b53-e57217cc60a6" />
+<img width="1284" height="621" alt="{0E52CFEB-6616-4AB1-842A-5F64134E4E6F}" src="https://github.com/user-attachments/assets/08994350-6a50-44be-a2a9-19b7c7fc1c87" />
+<img width="506" height="543" alt="{77F08451-31FD-4455-B1AC-2BF8F4BAC163}" src="https://github.com/user-attachments/assets/ea78673f-63cf-447a-8dcd-1e84fdf50feb" />
+
+
+
+
+
+
 
 **Встреча закончилась. Поручения остались.** Локальный ассистент для совещаний на русском, казахском и смешанном языке: запись → стенограмма со спикерами → протокол с проверяемыми цитатами → контроль исполнения.
 
